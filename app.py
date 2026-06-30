@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from components.ui import inject_css, hero, task_card
+from components.ui import inject_css, hero, task_card, section, clean
 from services.excel_service import (
     load_plan,
     active_team,
@@ -44,37 +44,55 @@ page = st.sidebar.radio("Navigation", ["Start Day", "My Tasks", "Team", "Project
 assignments = build_assignments(tasks, availability, selected_week)
 assignments = enrich_with_workspace(assignments, workspaces)
 assignments["_prio"] = assignments["Prioritet"].apply(priority_sort_value)
-assignments = assignments.sort_values(["_prio", "Arbejdsopgave"])
-
+assignments = assignments.sort_values(["_prio", "Frekvens", "Arbejdsopgave"])
 my_assignments = assignments[assignments["Assigned to"].astype(str).eq(selected_person)]
+
+
+def show_group(title, df):
+    section(f"{title} ({len(df)})")
+    if df.empty:
+        st.caption("No tasks")
+        return
+    for _, row in df.iterrows():
+        task_card(row)
+
 
 if page == "Start Day":
     status = availability_for_person(availability, selected_person, selected_week)
     hero(f"Good morning {selected_person} 👋", f"{selected_week} · Availability: {status}")
 
     start_tasks = my_assignments[my_assignments["Start dagen"].fillna("").astype(str).str.lower().eq("ja")]
-    st.header("Start Day")
-    if start_tasks.empty:
-        st.info("No Start Day tasks assigned.")
-    for _, row in start_tasks.iterrows():
-        task_card(row)
+    show_group("Start Day", start_tasks)
 
-    st.header("Next Tasks")
-    next_tasks = my_assignments[~my_assignments.index.isin(start_tasks.index)]
-    if next_tasks.empty:
-        st.success("No additional recurring tasks for this person.")
-    for _, row in next_tasks.head(5).iterrows():
-        task_card(row)
+    critical_next = my_assignments[
+        (~my_assignments.index.isin(start_tasks.index))
+        & (my_assignments["Prioritet"].astype(str).str.lower().str.contains("kritisk|critical", na=False))
+    ]
+    high_next = my_assignments[
+        (~my_assignments.index.isin(start_tasks.index))
+        & (my_assignments["Prioritet"].astype(str).str.lower().str.contains("høj|hoej|high", na=False))
+        & (~my_assignments.index.isin(critical_next.index))
+    ]
+    other_next = my_assignments[
+        (~my_assignments.index.isin(start_tasks.index))
+        & (~my_assignments.index.isin(critical_next.index))
+        & (~my_assignments.index.isin(high_next.index))
+    ]
+    if not critical_next.empty:
+        show_group("Critical next", critical_next)
+    if not high_next.empty:
+        show_group("High priority next", high_next)
+    if not other_next.empty:
+        show_group("Other tasks", other_next.head(6))
 
 elif page == "My Tasks":
     hero("My Tasks", f"{selected_person} · {selected_week}")
-    for freq in ["Daglig", "Ugentlig", "Månedlig"]:
-        subset = my_assignments[my_assignments["Frekvens"].astype(str).eq(freq)]
-        st.header(freq)
-        if subset.empty:
-            st.caption("No tasks")
-        for _, row in subset.iterrows():
-            task_card(row)
+    daily = my_assignments[my_assignments["Frekvens"].astype(str).eq("Daglig")]
+    weekly = my_assignments[my_assignments["Frekvens"].astype(str).eq("Ugentlig")]
+    monthly = my_assignments[my_assignments["Frekvens"].astype(str).eq("Månedlig")]
+    show_group("Daily", daily)
+    show_group("Weekly", weekly)
+    show_group("Monthly", monthly)
 
 elif page == "Team":
     hero("Team", "Active Product Enrichment team")
@@ -94,5 +112,5 @@ elif page == "About":
     col1.metric("Active people", len(team))
     col2.metric("Recurring tasks", len(tasks))
     col3.metric("Project rows", len(projects))
-    st.write("Primary color: #000066")
+    st.write("Primary color: #000066 / interface navy adjusted darker.")
     st.write("Excel is the administration tool. The web app is the work tool.")

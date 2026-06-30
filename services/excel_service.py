@@ -12,14 +12,23 @@ REQUIRED_SHEETS = [
 UNAVAILABLE_VALUES = {"ferie", "fridag", "kursus", "syg"}
 
 
+def _clean(value):
+    if value is None:
+        return ""
+    try:
+        if pd.isna(value):
+            return ""
+    except Exception:
+        pass
+    return str(value).strip()
+
+
 def load_plan(uploaded_file):
     xls = pd.ExcelFile(uploaded_file)
     missing = [s for s in REQUIRED_SHEETS if s not in xls.sheet_names]
     if missing:
         raise ValueError("Missing sheets: " + ", ".join(missing))
-
-    data = {sheet: pd.read_excel(uploaded_file, sheet_name=sheet) for sheet in REQUIRED_SHEETS}
-    return data
+    return {sheet: pd.read_excel(uploaded_file, sheet_name=sheet) for sheet in REQUIRED_SHEETS}
 
 
 def active_team(team_df):
@@ -39,10 +48,8 @@ def availability_for_person(availability_df, person, week):
     row = availability_df[availability_df["Navn"].astype(str).eq(str(person))]
     if row.empty:
         return "Arbejde"
-    value = row.iloc[0][week]
-    if pd.isna(value) or str(value).strip() == "":
-        return "Arbejde"
-    return str(value).strip()
+    value = _clean(row.iloc[0][week])
+    return value if value else "Arbejde"
 
 
 def is_available(availability_df, person, week):
@@ -50,10 +57,9 @@ def is_available(availability_df, person, week):
 
 
 def assigned_person(row, availability_df, week):
-    primary = row.get("Primær", "")
-    backup = row.get("Backup", "")
-    vacation_backup = row.get("Ferieafløser", "")
-
+    primary = _clean(row.get("Primær", ""))
+    backup = _clean(row.get("Backup", ""))
+    vacation_backup = _clean(row.get("Ferieafløser", ""))
     if primary and is_available(availability_df, primary, week):
         return primary, "Primary", ""
     if backup and is_available(availability_df, backup, week):
@@ -67,7 +73,6 @@ def build_assignments(tasks_df, availability_df, week):
     df = tasks_df.copy()
     if "Aktiv" in df.columns:
         df = df[df["Aktiv"].fillna("").astype(str).str.lower().eq("ja")]
-
     assigned = df.apply(lambda r: assigned_person(r, availability_df, week), axis=1)
     df["Assigned to"] = [x[0] for x in assigned]
     df["Assignment type"] = [x[1] for x in assigned]
@@ -89,4 +94,4 @@ def enrich_with_workspace(tasks_df, workspaces_df):
 
 def priority_sort_value(value):
     order = {"Kritisk": 1, "Høj": 2, "Normal": 3, "Lav": 4}
-    return order.get(str(value).strip(), 99)
+    return order.get(_clean(value), 99)
