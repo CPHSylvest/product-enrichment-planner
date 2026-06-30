@@ -4,12 +4,16 @@ import streamlit as st
 NAVY = "#000033"
 PRIMARY = "#000066"
 BG = "#F5F6FA"
-TEXT = "#2B2D3A"
-MUTED = "#697386"
 
-PRIORITY_ORDER = {"Kritisk": 1, "Høj": 2, "Normal": 3, "Lav": 4}
-PRIORITY_LABELS = {"Kritisk": "Critical", "Høj": "High", "Normal": "Normal", "Lav": "Low"}
-
+PRIORITY_ORDER = {
+    "Kritisk": 1,
+    "Høj": 2,
+    "Normal": 3,
+    "Lav": 4,
+    "Critical": 1,
+    "High": 2,
+    "Low": 4,
+}
 
 def clean(value, default=""):
     if value is None:
@@ -24,99 +28,180 @@ def clean(value, default=""):
         return default
     return text
 
-
 def inject_css():
-    st.markdown(f"""
-    <style>
-    .stApp {{ background: {BG}; }}
-    section[data-testid="stSidebar"] {{ background: {NAVY}; }}
-    section[data-testid="stSidebar"] * {{ color: white !important; }}
-    section[data-testid="stSidebar"] input, section[data-testid="stSidebar"] textarea {{
-        color: {TEXT} !important;
-        background: white !important;
-    }}
-    section[data-testid="stSidebar"] div[data-baseweb="select"] * {{
-        color: {TEXT} !important;
-    }}
-    h1 {{ font-size: 2.0rem !important; color: {TEXT}; }}
-    h2 {{ font-size: 1.45rem !important; color: {TEXT}; margin-top: 1.0rem !important; }}
-    h3 {{ font-size: 1.1rem !important; color: {TEXT}; }}
-    .hero {{
-        background: {NAVY}; color: white; border-radius: 22px;
-        padding: 28px 34px; margin-bottom: 22px;
-    }}
-    .hero h1 {{ color: white !important; font-size: 2.2rem !important; margin-bottom: 8px; }}
-    .hero p {{ color: white; font-size: 1rem; margin: 0; }}
-    .task-card {{
-        background: white; border: 1px solid #E2E6EF; border-radius: 16px;
-        padding: 16px 18px; margin: 10px 0; box-shadow: 0 1px 3px rgba(0,0,0,.04);
-    }}
-    .task-title {{ font-size: 1.15rem; font-weight: 700; color: {TEXT}; margin-bottom: 4px; }}
-    .task-meta {{ color: {MUTED}; font-size: .88rem; margin-bottom: 4px; }}
-    .task-desc {{ color: {MUTED}; font-size: .88rem; margin-top: 4px; }}
-    .pill {{ display: inline-block; border-radius: 999px; padding: 3px 10px; font-size: .75rem; font-weight: 700; margin-bottom: 6px; }}
-    .critical {{ background: #FFE2E2; color: #A40000; }}
-    .high {{ background: #FFECD6; color: #A85A00; }}
-    .normal {{ background: #E8F0FF; color: #003A8C; }}
-    .low {{ background: #E8F7ED; color: #1F7A3A; }}
-    .open-link a {{
-        display:inline-block; background:{PRIMARY}; color:white !important; text-decoration:none;
-        padding:8px 13px; border-radius:10px; font-weight:700; margin-top:8px; font-size:.85rem;
-    }}
-    .section-label {{
-        color:{TEXT}; font-size:1.0rem; font-weight:800; margin-top:18px; margin-bottom:4px;
-        border-bottom:1px solid #D8DEE9; padding-bottom:6px;
-    }}
-    .small-note {{ color: {MUTED}; font-size: .9rem; }}
-    </style>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <style>
+        .stApp {{
+            background: {BG};
+        }}
 
+        section[data-testid="stSidebar"] {{
+            background-color: {PRIMARY};
+        }}
 
-def hero(title, subtitle):
-    st.markdown(f"""
-    <div class="hero">
-      <h1>{title}</h1>
-      <p>{subtitle}</p>
-    </div>
-    """, unsafe_allow_html=True)
+        section[data-testid="stSidebar"] * {{
+            color: white !important;
+        }}
 
+        h1 {{
+            font-size: 38px !important;
+            line-height: 1.1 !important;
+        }}
 
-def priority_class(priority):
-    p = clean(priority)
-    return {"Kritisk": "critical", "Høj": "high", "Normal": "normal", "Lav": "low"}.get(p, "normal")
+        h2 {{
+            font-size: 28px !important;
+        }}
 
+        h3 {{
+            font-size: 22px !important;
+        }}
 
-def task_card(row, workspace_link=""):
-    title = clean(row.get("Arbejdsopgave"), "Untitled task")
-    priority = clean(row.get("Prioritet"), "Normal")
-    priority_en = PRIORITY_LABELS.get(priority, priority)
-    system = clean(row.get("System"))
-    workspace = clean(row.get("Workspace"))
-    banner = clean(row.get("Banner"))
-    frequency = clean(row.get("Frekvens"))
-    minutes = clean(row.get("Estimeret tid")) or clean(row.get("Estimeret tid (min)")) or clean(row.get("Estimeret tid (min.)"))
-    desc = clean(row.get("Beskrivelse"))
-    meta_parts = []
-    if system or workspace:
-        meta_parts.append(" / ".join([x for x in [system, workspace] if x]))
-    if banner:
-        meta_parts.append(banner)
-    if frequency:
-        meta_parts.append(frequency)
-    if minutes:
-        meta_parts.append(f"{minutes} min")
-    meta = " · ".join(meta_parts)
+        .hero {{
+            background: {PRIMARY};
+            color: white;
+            padding: 34px 38px;
+            border-radius: 26px;
+            margin-bottom: 28px;
+        }}
+
+        .hero h1 {{
+            color: white !important;
+            margin-bottom: 12px;
+        }}
+
+        .hero p {{
+            color: white !important;
+            font-size: 17px;
+        }}
+
+        .task-card {{
+            background: white;
+            border-radius: 18px;
+            padding: 20px 24px;
+            margin-bottom: 14px;
+            border: 1px solid #E6E8EF;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        }}
+
+        .task-title {{
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 6px;
+            color: #2B2E3A;
+        }}
+
+        .task-meta {{
+            color: #666B78;
+            font-size: 15px;
+            margin-bottom: 6px;
+        }}
+
+        .task-desc {{
+            color: #7A7F8C;
+            font-size: 15px;
+            margin-bottom: 12px;
+        }}
+
+        .priority-pill {{
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }}
+
+        .priority-critical {{
+            background: #FDE2E2;
+            color: #A60000;
+        }}
+
+        .priority-high {{
+            background: #FFE8CC;
+            color: #A64B00;
+        }}
+
+        .priority-normal {{
+            background: #FFF3BF;
+            color: #7A5A00;
+        }}
+
+        .priority-low {{
+            background: #DFF5E1;
+            color: #1E6B2D;
+        }}
+
+        .workspace-link {{
+            display: inline-block;
+            background: {PRIMARY};
+            color: white !important;
+            padding: 9px 16px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 14px;
+        }}
+
+        .stSelectbox label, .stFileUploader label {{
+            color: white !important;
+        }}
+
+        div[data-baseweb="select"] * {{
+            color: #1F2430 !important;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+def hero(title, subtitle=""):
+    st.markdown(
+        f"""
+        <div class="hero">
+            <h1>{clean(title)}</h1>
+            <p>{clean(subtitle)}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+def task_card(title, meta="", description="", priority="", link=""):
+    priority_clean = clean(priority)
+    priority_class = {
+        "Kritisk": "priority-critical",
+        "Critical": "priority-critical",
+        "Høj": "priority-high",
+        "High": "priority-high",
+        "Normal": "priority-normal",
+        "Lav": "priority-low",
+        "Low": "priority-low",
+    }.get(priority_clean, "priority-normal")
+
+    priority_html = ""
+    if priority_clean:
+        priority_html = f'<div class="priority-pill {priority_class}">{priority_clean}</div>'
+
+    desc_html = ""
+    if clean(description):
+        desc_html = f'<div class="task-desc">{clean(description)}</div>'
+
     link_html = ""
-    if workspace_link:
-        link_html = f'<div class="open-link"><a href="{workspace_link}" target="_blank">Open Workspace</a></div>'
-    elif system or workspace:
-        link_html = '<div class="small-note">No direct workspace link</div>'
-    st.markdown(f"""
-    <div class="task-card">
-      <div class="pill {priority_class(priority)}">{priority_en}</div>
-      <div class="task-title">{title}</div>
-      <div class="task-meta">{meta}</div>
-      <div class="task-desc">{desc}</div>
-      {link_html}
-    </div>
-    """, unsafe_allow_html=True)
+    if clean(link):
+        link_html = f'<a class="workspace-link" href="{clean(link)}" target="_blank">Open Workspace</a>'
+
+    st.markdown(
+        f"""
+        <div class="task-card">
+            {priority_html}
+            <div class="task-title">{clean(title)}</div>
+            <div class="task-meta">{clean(meta)}</div>
+            {desc_html}
+            {link_html}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+def section(title):
+    st.markdown(f"## {clean(title)}")
