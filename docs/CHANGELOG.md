@@ -1,13 +1,25 @@
 # Changelog
 
-## Version 0.1
+## Version 0.1.0 – Projekt etableret
 
-- Projekt oprettet
-- GitHub oprettet
-- Streamlit Cloud sat op
-- Første app deployet
+**Dato:** 2026-06-30
 
-## Version 0.2
+### Tilføjet
 
-- Dashboard tilføjet
-- Excel-upload tilføjet
+- Oprettet GitHub repository
+- Deployet første version til Streamlit Community Cloud
+- Oprettet grundlæggende projektstruktur
+- Tilføjet `README.md`
+- Tilføjet `.gitignore`
+- Oprettet `docs/`
+- Tilføjet `vision.md`
+- Tilføjet `roadmap.md`
+- Tilføjet `backlog.md`
+- Tilføjet `CHANGELOG.md`
+- Oprettet `sample_data/`
+- Defineret projektets vision og roadmap
+- Fastlagt arkitektur for Version 1
+
+### Status
+
+Projektet er klar til udvikling af PE Planner Version 0.2.
