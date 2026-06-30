@@ -1,123 +1,98 @@
 import streamlit as st
 import pandas as pd
-
-st.set_page_config(
-    page_title="PE Planner",
-    page_icon="📋",
-    layout="wide"
+from components.ui import inject_css, hero, task_card
+from services.excel_service import (
+    load_plan,
+    active_team,
+    week_columns,
+    build_assignments,
+    enrich_with_workspace,
+    priority_sort_value,
+    availability_for_person,
 )
 
-REQUIRED_SHEETS = [
-    "Team",
-    "Arbejdsopgaver",
-    "Calendar",
-    "Extra Tasks",
-    "Monthly Tasks"
-]
+st.set_page_config(page_title="PE Planner", page_icon="📋", layout="wide")
+inject_css()
 
-st.title("📋 PE Planner")
-st.caption("Product Enrichment Planning & Capacity Management")
+st.sidebar.title("PE Planner")
+uploaded = st.sidebar.file_uploader("Import Plan", type=["xlsx"])
 
-st.sidebar.title("Navigation")
-page = st.sidebar.radio(
-    "Vælg side",
-    [
-        "Dashboard",
-        "Mine opgaver",
-        "Team",
-        "Plan",
-        "Arbejdsopgaver",
-        "Ekstra opgaver",
-        "Administration"
-    ]
-)
-
-uploaded_file = st.sidebar.file_uploader(
-    "Importer plan",
-    type=["xlsx"]
-)
-
-if uploaded_file is None:
-    st.info("Upload PE Planner Excel-filen i venstremenuen for at starte.")
+if uploaded is None:
+    hero("PE Planner", "Import PE Planner Administration to start.")
+    st.info("Use the sidebar to import your PE Planner Administration Excel file.")
     st.stop()
 
 try:
-    excel_file = pd.ExcelFile(uploaded_file)
-    sheet_names = excel_file.sheet_names
-
-    missing_sheets = [
-        sheet for sheet in REQUIRED_SHEETS
-        if sheet not in sheet_names
-    ]
-
-    if missing_sheets:
-        st.error("Excel-filen mangler følgende ark:")
-        st.write(missing_sheets)
-        st.stop()
-
-    team = pd.read_excel(uploaded_file, sheet_name="Team")
-    tasks = pd.read_excel(uploaded_file, sheet_name="Arbejdsopgaver")
-    calendar = pd.read_excel(uploaded_file, sheet_name="Calendar")
-    extra_tasks = pd.read_excel(uploaded_file, sheet_name="Extra Tasks")
-    monthly_tasks = pd.read_excel(uploaded_file, sheet_name="Monthly Tasks")
-
+    data = load_plan(uploaded)
 except Exception as e:
-    st.error("Excel-filen kunne ikke læses.")
-    st.exception(e)
+    hero("Import error", "The uploaded file could not be read.")
+    st.error(str(e))
     st.stop()
 
-if page == "Dashboard":
-    st.header("Dashboard")
+team = active_team(data["Team"])
+tasks = data["Arbejdsopgaver"]
+workspaces = data["Workspaces"]
+availability = data["Tilgængelighed"]
+projects = data["Plan & Projekter"]
 
-    col1, col2, col3, col4 = st.columns(4)
+weeks = week_columns(availability)
+selected_week = st.sidebar.selectbox("Week", weeks if weeks else ["U1"])
+people = team["Navn"].dropna().astype(str).tolist()
+selected_person = st.sidebar.selectbox("Person", people)
+page = st.sidebar.radio("Navigation", ["Start Day", "My Tasks", "Team", "Projects", "About"])
 
-    col1.metric("Medarbejdere", len(team))
-    col2.metric("Arbejdsopgaver", len(tasks))
-    col3.metric("Ekstra opgaver", len(extra_tasks))
-    col4.metric("Månedlige opgaver", len(monthly_tasks))
+assignments = build_assignments(tasks, availability, selected_week)
+assignments = enrich_with_workspace(assignments, workspaces)
+assignments["_prio"] = assignments["Prioritet"].apply(priority_sort_value)
+assignments = assignments.sort_values(["_prio", "Arbejdsopgave"])
 
-    st.subheader("Arbejdsopgaver")
-    st.dataframe(tasks, use_container_width=True)
+my_assignments = assignments[assignments["Assigned to"].astype(str).eq(selected_person)]
 
-elif page == "Mine opgaver":
-    st.header("Mine opgaver")
+if page == "Start Day":
+    status = availability_for_person(availability, selected_person, selected_week)
+    hero(f"Good morning {selected_person} 👋", f"{selected_week} · Availability: {status}")
 
-    people = team["Navn"].dropna().unique().tolist()
+    start_tasks = my_assignments[my_assignments["Start dagen"].fillna("").astype(str).str.lower().eq("ja")]
+    st.header("Start Day")
+    if start_tasks.empty:
+        st.info("No Start Day tasks assigned.")
+    for _, row in start_tasks.iterrows():
+        task_card(row)
 
-    selected_person = st.selectbox("Vælg person", people)
+    st.header("Next Tasks")
+    next_tasks = my_assignments[~my_assignments.index.isin(start_tasks.index)]
+    if next_tasks.empty:
+        st.success("No additional recurring tasks for this person.")
+    for _, row in next_tasks.head(5).iterrows():
+        task_card(row)
 
-    my_tasks = tasks[
-        (tasks["Primær"] == selected_person) |
-        (tasks["Backup"] == selected_person) |
-        (tasks["Ferieafløser"] == selected_person)
-    ]
-
-    st.subheader(selected_person)
-    st.dataframe(my_tasks, use_container_width=True)
+elif page == "My Tasks":
+    hero("My Tasks", f"{selected_person} · {selected_week}")
+    for freq in ["Daglig", "Ugentlig", "Månedlig"]:
+        subset = my_assignments[my_assignments["Frekvens"].astype(str).eq(freq)]
+        st.header(freq)
+        if subset.empty:
+            st.caption("No tasks")
+        for _, row in subset.iterrows():
+            task_card(row)
 
 elif page == "Team":
-    st.header("Team")
-    st.dataframe(team, use_container_width=True)
+    hero("Team", "Active Product Enrichment team")
+    st.dataframe(team, use_container_width=True, hide_index=True)
 
-elif page == "Plan":
-    st.header("Plan / ferie / fridage")
-    st.dataframe(calendar, use_container_width=True)
+elif page == "Projects":
+    hero("Projects", "Ad hoc planning and project tasks")
+    if "Ansvarlig" in projects.columns:
+        my_projects = projects[projects["Ansvarlig"].astype(str).eq(selected_person)]
+    else:
+        my_projects = projects
+    st.dataframe(my_projects, use_container_width=True, hide_index=True)
 
-elif page == "Arbejdsopgaver":
-    st.header("Arbejdsopgaver")
-    st.dataframe(tasks, use_container_width=True)
-
-elif page == "Ekstra opgaver":
-    st.header("Ekstra opgaver")
-    st.dataframe(extra_tasks, use_container_width=True)
-
-elif page == "Administration":
-    st.header("Administration")
-
-    st.success("Excel-filen er indlæst korrekt.")
-
-    st.write("Fundne ark:")
-    st.write(sheet_names)
-
-    st.write("Forventede ark:")
-    st.write(REQUIRED_SHEETS)
+elif page == "About":
+    hero("About PE Planner", "Product Enrichment Planning & Capacity Management")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Active people", len(team))
+    col2.metric("Recurring tasks", len(tasks))
+    col3.metric("Project rows", len(projects))
+    st.write("Primary color: #000066")
+    st.write("Excel is the administration tool. The web app is the work tool.")
