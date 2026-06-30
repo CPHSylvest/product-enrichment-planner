@@ -1,116 +1,90 @@
-import streamlit as st
 import pandas as pd
-from components.ui import inject_css, hero, task_card, section, clean
-from services.excel_service import (
-    load_plan,
-    active_team,
-    week_columns,
-    build_assignments,
-    enrich_with_workspace,
-    priority_sort_value,
-    availability_for_person,
-)
+import streamlit as st
+from components.ui import inject_css, hero, task_card, clean, PRIORITY_ORDER
+from services.excel_loader import read_plan, active_rows, workspace_map, available_weeks, availability_for
 
 st.set_page_config(page_title="PE Planner", page_icon="📋", layout="wide")
 inject_css()
 
-st.sidebar.title("PE Planner")
-uploaded = st.sidebar.file_uploader("Import Plan", type=["xlsx"])
+with st.sidebar:
+    st.markdown("# PE Planner")
+    uploaded = st.file_uploader("Import Plan", type=["xlsx"])
 
-if uploaded is None:
+if not uploaded:
     hero("PE Planner", "Import PE Planner Administration to start.")
     st.info("Use the sidebar to import your PE Planner Administration Excel file.")
     st.stop()
 
-try:
-    data = load_plan(uploaded)
-except Exception as e:
-    hero("Import error", "The uploaded file could not be read.")
-    st.error(str(e))
-    st.stop()
+data = read_plan(uploaded)
+team = active_rows(data["team"])
+tasks = active_rows(data["tasks"])
+workspaces = active_rows(data["workspaces"])
+availability = data["availability"]
+projects = data["projects"]
+links = workspace_map(workspaces)
+weeks = available_weeks(availability)
 
-team = active_team(data["Team"])
-tasks = data["Arbejdsopgaver"]
-workspaces = data["Workspaces"]
-availability = data["Tilgængelighed"]
-projects = data["Plan & Projekter"]
+with st.sidebar:
+    week = st.selectbox("Week", weeks if weeks else [""], index=0)
+    people = team["Navn"].dropna().astype(str).tolist() if "Navn" in team.columns else []
+    person = st.selectbox("Person", people if people else [""], index=0)
+    page = st.radio("Navigation", ["Start Day", "My Tasks", "Team", "Projects", "About"])
 
-weeks = week_columns(availability)
-selected_week = st.sidebar.selectbox("Week", weeks if weeks else ["U1"])
-people = team["Navn"].dropna().astype(str).tolist()
-selected_person = st.sidebar.selectbox("Person", people)
-page = st.sidebar.radio("Navigation", ["Start Day", "My Tasks", "Team", "Projects", "About"])
-
-assignments = build_assignments(tasks, availability, selected_week)
-assignments = enrich_with_workspace(assignments, workspaces)
-assignments["_prio"] = assignments["Prioritet"].apply(priority_sort_value)
-assignments = assignments.sort_values(["_prio", "Frekvens", "Arbejdsopgave"])
-my_assignments = assignments[assignments["Assigned to"].astype(str).eq(selected_person)]
-
-
-def show_group(title, df):
-    section(f"{title} ({len(df)})")
-    if df.empty:
-        st.caption("No tasks")
-        return
-    for _, row in df.iterrows():
-        task_card(row)
-
+availability_status = availability_for(availability, person, week)
 
 if page == "Start Day":
-    status = availability_for_person(availability, selected_person, selected_week)
-    hero(f"Good morning {selected_person} 👋", f"{selected_week} · Availability: {status}")
-
-    start_tasks = my_assignments[my_assignments["Start dagen"].fillna("").astype(str).str.lower().eq("ja")]
-    show_group("Start Day", start_tasks)
-
-    critical_next = my_assignments[
-        (~my_assignments.index.isin(start_tasks.index))
-        & (my_assignments["Prioritet"].astype(str).str.lower().str.contains("kritisk|critical", na=False))
-    ]
-    high_next = my_assignments[
-        (~my_assignments.index.isin(start_tasks.index))
-        & (my_assignments["Prioritet"].astype(str).str.lower().str.contains("høj|hoej|high", na=False))
-        & (~my_assignments.index.isin(critical_next.index))
-    ]
-    other_next = my_assignments[
-        (~my_assignments.index.isin(start_tasks.index))
-        & (~my_assignments.index.isin(critical_next.index))
-        & (~my_assignments.index.isin(high_next.index))
-    ]
-    if not critical_next.empty:
-        show_group("Critical next", critical_next)
-    if not high_next.empty:
-        show_group("High priority next", high_next)
-    if not other_next.empty:
-        show_group("Other tasks", other_next.head(6))
+    hero(f"Good morning {person} 👋", f"{week} · Availability: {availability_status}")
+    st.markdown("## Start Day")
+    if tasks.empty:
+        st.warning("No tasks found.")
+    else:
+        df = tasks.copy()
+        if "Primær" in df.columns:
+            df = df[df["Primær"].astype(str).str.strip() == str(person).strip()]
+        if "Start dagen" in df.columns:
+            df = df[df["Start dagen"].astype(str).str.strip().str.lower() == "ja"]
+        df["_prio"] = df.get("Prioritet", "Normal").map(PRIORITY_ORDER).fillna(99)
+        df = df.sort_values(["_prio", "Arbejdsopgave"])
+        if df.empty:
+            st.info("No Start Day tasks for this person.")
+        for _, row in df.iterrows():
+            link = links.get((clean(row.get("System")), clean(row.get("Workspace"))), "")
+            task_card(row, link)
 
 elif page == "My Tasks":
-    hero("My Tasks", f"{selected_person} · {selected_week}")
-    daily = my_assignments[my_assignments["Frekvens"].astype(str).eq("Daglig")]
-    weekly = my_assignments[my_assignments["Frekvens"].astype(str).eq("Ugentlig")]
-    monthly = my_assignments[my_assignments["Frekvens"].astype(str).eq("Månedlig")]
-    show_group("Daily", daily)
-    show_group("Weekly", weekly)
-    show_group("Monthly", monthly)
+    hero("My Tasks", f"{person} · {week}")
+    df = tasks.copy()
+    if "Primær" in df.columns:
+        df = df[df["Primær"].astype(str).str.strip() == str(person).strip()]
+    if df.empty:
+        st.info("No tasks found for this person.")
+    else:
+        if "Prioritet" in df.columns:
+            df["_prio"] = df["Prioritet"].map(PRIORITY_ORDER).fillna(99)
+            df = df.sort_values(["_prio", "Frekvens", "Arbejdsopgave"])
+        for freq in ["Daglig", "Ugentlig", "Månedlig"]:
+            sub = df[df.get("Frekvens", "").astype(str).str.strip() == freq]
+            if not sub.empty:
+                st.markdown(f'<div class="section-label">{freq}</div>', unsafe_allow_html=True)
+                for _, row in sub.iterrows():
+                    link = links.get((clean(row.get("System")), clean(row.get("Workspace"))), "")
+                    task_card(row, link)
 
 elif page == "Team":
-    hero("Team", "Active Product Enrichment team")
+    hero("Team", "Active employees")
     st.dataframe(team, use_container_width=True, hide_index=True)
 
 elif page == "Projects":
-    hero("Projects", "Ad hoc planning and project tasks")
-    if "Ansvarlig" in projects.columns:
-        my_projects = projects[projects["Ansvarlig"].astype(str).eq(selected_person)]
+    hero("Projects", "Plan & Projects")
+    if projects.empty:
+        st.info("No projects found.")
     else:
-        my_projects = projects
-    st.dataframe(my_projects, use_container_width=True, hide_index=True)
+        st.dataframe(projects, use_container_width=True, hide_index=True)
 
 elif page == "About":
     hero("About PE Planner", "Product Enrichment Planning & Capacity Management")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Active people", len(team))
-    col2.metric("Recurring tasks", len(tasks))
-    col3.metric("Project rows", len(projects))
-    st.write("Primary color: #000066 / interface navy adjusted darker.")
-    st.write("Excel is the administration tool. The web app is the work tool.")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Employees", len(team))
+    c2.metric("Tasks", len(tasks))
+    c3.metric("Projects", 0 if projects.empty else len(projects))
+    st.write("Version: WebApp v0.2 fixed")
