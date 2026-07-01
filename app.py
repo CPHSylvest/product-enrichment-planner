@@ -296,6 +296,46 @@ def render_tasks(title, df):
         task_card(row)
 
 
+
+def render_my_tasks(assignments, person):
+    person_tasks = tasks_for_person(assignments, person)
+    staffing = requires_staffing(assignments)
+
+    taken_over = pd.DataFrame()
+    if not person_tasks.empty and "Taken Over From" in person_tasks.columns:
+        taken_over = person_tasks[person_tasks["Taken Over From"].apply(clean) != ""].copy()
+
+    if person_tasks.empty and staffing.empty:
+        st.info("No tasks found.")
+        return
+
+    critical = person_tasks[person_tasks["Prioritet"].astype(str).str.strip().eq("Kritisk")] if "Prioritet" in person_tasks.columns else pd.DataFrame()
+    high = person_tasks[person_tasks["Prioritet"].astype(str).str.strip().eq("Høj")] if "Prioritet" in person_tasks.columns else pd.DataFrame()
+
+    daily = person_tasks[
+        person_tasks["Frekvens"].astype(str).str.strip().eq("Daglig")
+        & ~person_tasks["Prioritet"].astype(str).str.strip().isin(["Kritisk", "Høj"])
+    ] if "Frekvens" in person_tasks.columns and "Prioritet" in person_tasks.columns else pd.DataFrame()
+
+    weekly = person_tasks[
+        person_tasks["Frekvens"].astype(str).str.strip().eq("Ugentlig")
+        & ~person_tasks["Prioritet"].astype(str).str.strip().isin(["Kritisk", "Høj"])
+    ] if "Frekvens" in person_tasks.columns and "Prioritet" in person_tasks.columns else pd.DataFrame()
+
+    monthly = person_tasks[
+        person_tasks["Frekvens"].astype(str).str.strip().eq("Månedlig")
+        & ~person_tasks["Prioritet"].astype(str).str.strip().isin(["Kritisk", "Høj"])
+    ] if "Frekvens" in person_tasks.columns and "Prioritet" in person_tasks.columns else pd.DataFrame()
+
+    render_tasks("🔴 Critical", critical)
+    render_tasks("🟠 High", high)
+    render_tasks("📅 Daily", daily)
+    render_tasks("📆 Weekly", weekly)
+    render_tasks("🗓 Monthly", monthly)
+    render_tasks("🔄 Taken over", taken_over)
+    render_tasks("🚨 Requires Staffing", staffing)
+
+
 def render_dashboard(assignments, availability, week, projects):
     staffing = requires_staffing(assignments)
     takeovers = takeover_tasks(assignments)
