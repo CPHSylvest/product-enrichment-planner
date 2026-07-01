@@ -14,7 +14,7 @@ from services.excel_service import (
     takeover_tasks,
 )
 
-PRIMARY = "#000066"
+PRIMARY = "#1A2138"
 BG = "#F5F6FA"
 
 REQUIRED_SHEETS = [
@@ -44,6 +44,31 @@ def inject_css():
     st.markdown(
         f"""
         <style>
+        /* Sprint 5.6 pilot polish */
+        .hero {
+            border-radius: 18px !important;
+            padding: 18px 24px !important;
+            margin-bottom: 14px !important;
+            min-height: auto !important;
+        }
+        .hero h1 {
+            padding-top: 0 !important;
+            margin-top: 0 !important;
+            margin-bottom: 4px !important;
+            font-size: 24px !important;
+            line-height: 1.2 !important;
+        }
+        .hero p {
+            font-size: 13px !important;
+            line-height: 1.35 !important;
+        }
+        div[data-testid="stContainer"] {
+            border-radius: 14px !important;
+        }
+        [data-testid="stCaptionContainer"] {
+            color: #5D6678 !important;
+        }
+        
         .stApp {{ background: {BG}; }}
 
         section[data-testid="stSidebar"] {{
@@ -265,7 +290,7 @@ def task_card(row):
     with st.container(border=True):
         top_left, top_right = st.columns([5, 1])
         with top_left:
-            st.markdown(f"### {title}")
+            st.markdown(f"**{title}**")
         with top_right:
             if label:
                 st.markdown(f"**{priority_icon} {label}**")
@@ -278,7 +303,7 @@ def task_card(row):
 
         if description:
             st.markdown(
-                f"<div style='font-size:14px; color:#4B5563; margin-top:8px;'>{description}</div>",
+                f"<div style='font-size:13px; color:#4B5563; margin-top:6px; margin-bottom:8px;'>📝 {description}</div>",
                 unsafe_allow_html=True,
             )
 
@@ -457,7 +482,7 @@ def main():
 
     elif page == "About":
         st.markdown("## About PE Planner")
-        st.write("**Version:** Pilot Polish")
+        st.write("**Version:** Pilot Polish 5.6")
         st.write("**Plan source:** sample_data/current_plan.xlsx")
         st.write("The plan is maintained by the administrator. Team members only need to open the app link.")
         st.write(f"Employees: {len(team)}")
