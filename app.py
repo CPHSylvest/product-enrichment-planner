@@ -194,6 +194,40 @@ def render_tasks(title, df):
         task_card(row)
 
 
+def render_my_tasks(assignments, person):
+    person_tasks = tasks_for_person(assignments, person)
+    staffing = requires_staffing(assignments)
+    taken_over = person_tasks[person_tasks["Taken Over From"].apply(clean) != ""].copy()
+
+    critical = person_tasks[person_tasks["Prioritet"].astype(str).str.strip().eq("Kritisk")]
+    high = person_tasks[person_tasks["Prioritet"].astype(str).str.strip().eq("Høj")]
+
+    daily = person_tasks[
+        person_tasks["Frekvens"].astype(str).str.strip().eq("Daglig")
+        & ~person_tasks["Prioritet"].astype(str).str.strip().isin(["Kritisk", "Høj"])
+    ]
+    weekly = person_tasks[
+        person_tasks["Frekvens"].astype(str).str.strip().eq("Ugentlig")
+        & ~person_tasks["Prioritet"].astype(str).str.strip().isin(["Kritisk", "Høj"])
+    ]
+    monthly = person_tasks[
+        person_tasks["Frekvens"].astype(str).str.strip().eq("Månedlig")
+        & ~person_tasks["Prioritet"].astype(str).str.strip().isin(["Kritisk", "Høj"])
+    ]
+
+    render_tasks("🔴 Critical", critical)
+    render_tasks("🟠 High", high)
+    render_tasks("📅 Daily", daily)
+    render_tasks("📆 Weekly", weekly)
+    render_tasks("🗓 Monthly", monthly)
+
+    if not taken_over.empty:
+        render_tasks("🔄 Taken over", taken_over)
+
+    if not staffing.empty:
+        render_tasks("🚨 Requires Staffing", staffing)
+
+
 def render_dashboard(assignments, availability, week):
     staffing = requires_staffing(assignments)
     takeovers = takeover_tasks(assignments)
@@ -263,10 +297,7 @@ def main():
         render_tasks("Start Day", start_day_tasks(assignments, person))
 
     elif page == "My Tasks":
-        person_tasks = tasks_for_person(assignments, person)
-        render_tasks("Daily", person_tasks[person_tasks["Frekvens"].astype(str).str.strip().eq("Daglig")])
-        render_tasks("Weekly", person_tasks[person_tasks["Frekvens"].astype(str).str.strip().eq("Ugentlig")])
-        render_tasks("Monthly", person_tasks[person_tasks["Frekvens"].astype(str).str.strip().eq("Månedlig")])
+        render_my_tasks(assignments, person)
 
     elif page == "Dashboard":
         render_dashboard(assignments, availability, week)
@@ -283,7 +314,7 @@ def main():
 
     elif page == "About":
         st.markdown("## About PE Planner")
-        st.write("Version: Sprint 5 UI fix")
+        st.write("Version: Sprint 5.2 - My Tasks")
         st.write(f"Employees: {len(team)}")
         st.write(f"Recurring tasks: {len(tasks)}")
         st.write(f"Projects / ad hoc rows: {len(projects)}")
