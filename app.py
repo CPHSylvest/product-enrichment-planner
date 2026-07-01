@@ -43,36 +43,119 @@ def inject_css():
         f"""
         <style>
         .stApp {{ background: {BG}; }}
-        section[data-testid="stSidebar"] {{ background-color: {PRIMARY}; }}
-        section[data-testid="stSidebar"] * {{ color: white !important; }}
-        div[data-baseweb="select"] * {{ color: #111827 !important; }}
-        .stSelectbox label, .stFileUploader label {{ color: white !important; }}
-        .block-container {{ max-width: 1120px; padding-top: 1.25rem; }}
-        h1 {{ font-size: 30px !important; }}
-        h2 {{ font-size: 22px !important; margin-top: 1rem !important; }}
-        h3 {{ font-size: 18px !important; }}
+
+        section[data-testid="stSidebar"] {{
+            background-color: {PRIMARY};
+        }}
+
+        section[data-testid="stSidebar"] * {{
+            color: white !important;
+        }}
+
+        div[data-baseweb="select"] * {{
+            color: #111827 !important;
+        }}
+
+        .stSelectbox label,
+        .stFileUploader label {{
+            color: white !important;
+            font-size: 13px !important;
+        }}
+
+        .block-container {{
+            max-width: 1120px;
+            padding-top: 0.9rem;
+            padding-bottom: 2rem;
+        }}
+
+        h1 {{
+            font-size: 26px !important;
+            line-height: 1.1 !important;
+        }}
+
+        h2 {{
+            font-size: 19px !important;
+            margin-top: 0.75rem !important;
+            margin-bottom: 0.45rem !important;
+        }}
+
+        h3 {{
+            font-size: 16px !important;
+        }}
+
         .hero {{
             background: {PRIMARY};
             color: white;
-            padding: 18px 24px;
-            border-radius: 18px;
-            margin-bottom: 18px;
+            padding: 12px 18px;
+            border-radius: 14px;
+            margin-bottom: 12px;
         }}
+
         .hero h1 {{
             color: white !important;
-            font-size: 28px !important;
-            margin-bottom: 6px;
+            font-size: 24px !important;
+            margin-bottom: 3px;
         }}
+
         .hero p {{
             color: white !important;
             margin: 0;
+            font-size: 13px;
+        }}
+
+        div[data-testid="stVerticalBlock"] {{
+            gap: 0.55rem;
+        }}
+
+        div[data-testid="stExpander"] {{
+            background: white;
+            border-radius: 12px;
+        }}
+
+        .stButton button,
+        .stLinkButton a {{
+            background-color: {PRIMARY} !important;
+            color: white !important;
+            border-radius: 8px !important;
+            padding: 0.35rem 0.75rem !important;
+            font-size: 13px !important;
+            font-weight: 650 !important;
+            border: 0 !important;
+        }}
+
+        [data-testid="stMetric"] {{
+            background: white;
+            border: 1px solid #E6E8EF;
+            border-radius: 12px;
+            padding: 12px 14px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+        }}
+
+        [data-testid="stMetricValue"] {{
+            font-size: 24px !important;
+            color: {PRIMARY};
+        }}
+
+        [data-testid="stMetricLabel"] {{
+            font-size: 12px !important;
+            color: #6B7280 !important;
+        }}
+
+        div[data-testid="stContainer"] {{
+            border-radius: 12px !important;
+        }}
+
+        .element-container {{
+            margin-bottom: 0.25rem !important;
+        }}
+
+        p {{
             font-size: 14px;
         }}
         </style>
         """,
         unsafe_allow_html=True,
     )
-
 
 def normalize_columns(df):
     df = df.copy()
@@ -145,7 +228,7 @@ def task_card(row):
     if bool(row.get("Requires Staffing", False)):
         with st.container(border=True):
             st.error("🚨 Requires Staffing")
-            st.subheader(clean(row.get("Arbejdsopgave"), "Task"))
+            st.markdown(f"**{clean(row.get('Arbejdsopgave'), 'Task')}**")
             reason = clean(row.get("Staffing Reason"))
             if reason:
                 st.caption(reason)
@@ -171,19 +254,24 @@ def task_card(row):
     ] if x])
 
     with st.container(border=True):
-        if label:
-            st.caption(label)
-        st.subheader(title)
-        if meta:
-            st.caption(meta)
+        top_left, top_right = st.columns([4, 1])
+        with top_left:
+            st.markdown(f"**{title}**")
+            if meta:
+                st.caption(meta)
+        with top_right:
+            if label:
+                st.caption(label)
+
         if takeover:
             st.info(f"Taken over from {takeover}")
+
         if description:
-            st.write(description)
+            st.caption(description)
+
         if link:
             button_label = f"Open {system}" if system else "Open Workspace"
             st.link_button(button_label, link)
-
 
 def render_tasks(title, df):
     st.markdown(f"## {title}")
@@ -343,7 +431,7 @@ def main():
 
     elif page == "About":
         st.markdown("## About PE Planner")
-        st.write("Version: Sprint 5.3 - Dashboard")
+        st.write("Version: Sprint 5.4 - UI polish")
         st.write(f"Employees: {len(team)}")
         st.write(f"Recurring tasks: {len(tasks)}")
         st.write(f"Projects / ad hoc rows: {len(projects)}")
