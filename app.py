@@ -287,46 +287,13 @@ def task_card(row):
             st.link_button(button_label, link)
 
 def render_tasks(title, df):
-    st.markdown(f"## {title}")
     if df is None or df.empty:
-        st.info("No tasks found.")
         return
+
+    st.markdown(f"## {title}")
+
     for _, row in sort_tasks(df).iterrows():
         task_card(row)
-
-
-def render_my_tasks(assignments, person):
-    person_tasks = tasks_for_person(assignments, person)
-    staffing = requires_staffing(assignments)
-    taken_over = person_tasks[person_tasks["Taken Over From"].apply(clean) != ""].copy()
-
-    critical = person_tasks[person_tasks["Prioritet"].astype(str).str.strip().eq("Kritisk")]
-    high = person_tasks[person_tasks["Prioritet"].astype(str).str.strip().eq("Høj")]
-
-    daily = person_tasks[
-        person_tasks["Frekvens"].astype(str).str.strip().eq("Daglig")
-        & ~person_tasks["Prioritet"].astype(str).str.strip().isin(["Kritisk", "Høj"])
-    ]
-    weekly = person_tasks[
-        person_tasks["Frekvens"].astype(str).str.strip().eq("Ugentlig")
-        & ~person_tasks["Prioritet"].astype(str).str.strip().isin(["Kritisk", "Høj"])
-    ]
-    monthly = person_tasks[
-        person_tasks["Frekvens"].astype(str).str.strip().eq("Månedlig")
-        & ~person_tasks["Prioritet"].astype(str).str.strip().isin(["Kritisk", "Høj"])
-    ]
-
-    render_tasks("🔴 Critical", critical)
-    render_tasks("🟠 High", high)
-    render_tasks("📅 Daily", daily)
-    render_tasks("📆 Weekly", weekly)
-    render_tasks("🗓 Monthly", monthly)
-
-    if not taken_over.empty:
-        render_tasks("🔄 Taken over", taken_over)
-
-    if not staffing.empty:
-        render_tasks("🚨 Requires Staffing", staffing)
 
 
 def render_dashboard(assignments, availability, week, projects):
@@ -450,7 +417,9 @@ def main():
 
     elif page == "About":
         st.markdown("## About PE Planner")
-        st.write("Version: Sprint 6 - Shared GitHub plan")
+        st.write("**Version:** Pilot Polish")
+        st.write("**Plan source:** sample_data/current_plan.xlsx")
+        st.write("The plan is maintained by the administrator. Team members only need to open the app link.")
         st.write(f"Employees: {len(team)}")
         st.write(f"Recurring tasks: {len(tasks)}")
         st.write(f"Projects / ad hoc rows: {len(projects)}")
