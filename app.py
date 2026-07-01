@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pandas as pd
 import streamlit as st
 
@@ -164,12 +166,12 @@ def normalize_columns(df):
 
 
 @st.cache_data(show_spinner=False)
-def read_plan(uploaded_file):
-    excel = pd.ExcelFile(uploaded_file)
+def read_plan_from_path(file_path: str):
+    excel = pd.ExcelFile(file_path)
     missing = [sheet for sheet in REQUIRED_SHEETS if sheet not in excel.sheet_names]
     if missing:
         raise ValueError("Missing sheets: " + ", ".join(missing))
-    return {sheet: normalize_columns(pd.read_excel(uploaded_file, sheet_name=sheet)) for sheet in REQUIRED_SHEETS}
+    return {sheet: normalize_columns(pd.read_excel(file_path, sheet_name=sheet)) for sheet in REQUIRED_SHEETS}
 
 
 def active_rows(df):
@@ -382,19 +384,25 @@ def main():
     st.set_page_config(page_title="PE Planner", page_icon="📋", layout="wide")
     inject_css()
 
+    plan_path = Path("sample_data/current_plan.xlsx")
+
     with st.sidebar:
         st.markdown("# PE Planner")
-        uploaded = st.file_uploader("Import Plan", type=["xlsx"])
+        if plan_path.exists():
+            st.success("Active plan loaded")
+            st.caption("sample_data/current_plan.xlsx")
+        else:
+            st.error("No active plan found")
 
-    if not uploaded:
-        hero("PE Planner", "Import PE Planner Administration to start.")
-        st.info("Use the sidebar to import your PE Planner Administration Excel file.")
+    if not plan_path.exists():
+        hero("PE Planner", "No active plan found.")
+        st.info("Add the active Excel file to GitHub as: sample_data/current_plan.xlsx")
         return
 
     try:
-        data = read_plan(uploaded)
+        data = read_plan_from_path(str(plan_path))
     except Exception as exc:
-        hero("Import failed", "The Excel file could not be read.")
+        hero("Import failed", "The active plan could not be read.")
         st.error(str(exc))
         return
 
@@ -442,7 +450,7 @@ def main():
 
     elif page == "About":
         st.markdown("## About PE Planner")
-        st.write("Version: Sprint 5.4.1 - Task card UI polish")
+        st.write("Version: Sprint 6 - Shared GitHub plan")
         st.write(f"Employees: {len(team)}")
         st.write(f"Recurring tasks: {len(tasks)}")
         st.write(f"Projects / ad hoc rows: {len(projects)}")
