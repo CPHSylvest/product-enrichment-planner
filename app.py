@@ -228,26 +228,55 @@ def render_my_tasks(assignments, person):
         render_tasks("🚨 Requires Staffing", staffing)
 
 
-def render_dashboard(assignments, availability, week):
+def render_dashboard(assignments, availability, week, projects):
     staffing = requires_staffing(assignments)
     takeovers = takeover_tasks(assignments)
     availability_summary = team_availability_summary(availability, week)
     unavailable = availability_summary[availability_summary["Available"] == False] if not availability_summary.empty else pd.DataFrame()
 
-    c1, c2, c3 = st.columns(3)
+    active_projects = pd.DataFrame()
+    if projects is not None and not projects.empty:
+        project_week = projects["Uge"].astype(str).str.strip() if "Uge" in projects.columns else ""
+        active_projects = projects[project_week.eq(str(week).strip())].copy() if "Uge" in projects.columns else projects.copy()
+
+    c1, c2, c3, c4 = st.columns(4)
     c1.metric("Requires Staffing", len(staffing))
     c2.metric("Taken over tasks", len(takeovers))
     c3.metric("Unavailable people", len(unavailable))
+    c4.metric("Active project tasks", len(active_projects))
 
-    render_tasks("Requires Staffing", staffing)
+    st.markdown("## Overview")
+    overview_rows = []
+    if not unavailable.empty:
+        for _, row in unavailable.iterrows():
+            overview_rows.append({
+                "Type": "Unavailable",
+                "Person": row.get("Navn", ""),
+                "Detail": row.get("Status", ""),
+            })
+    if not takeovers.empty:
+        for _, row in takeovers.iterrows():
+            overview_rows.append({
+                "Type": "Taken over",
+                "Person": row.get("Assigned To", ""),
+                "Detail": f"{row.get('Arbejdsopgave', '')} from {row.get('Taken Over From', '')}",
+            })
+    if overview_rows:
+        st.dataframe(pd.DataFrame(overview_rows), use_container_width=True, hide_index=True)
+    else:
+        st.success("No availability or takeover issues found for this week.")
+
+    render_tasks("🚨 Requires Staffing", staffing)
 
     if not takeovers.empty:
-        st.markdown("## Taken over tasks")
-        st.dataframe(
-            takeovers[["Arbejdsopgave", "Assigned To", "Taken Over From", "Frekvens", "Prioritet"]],
-            use_container_width=True,
-            hide_index=True,
-        )
+        st.markdown("## 🔄 Taken over tasks")
+        cols = ["Arbejdsopgave", "Assigned To", "Taken Over From", "Frekvens", "Prioritet"]
+        existing = [c for c in cols if c in takeovers.columns]
+        st.dataframe(takeovers[existing], use_container_width=True, hide_index=True)
+
+    if not active_projects.empty:
+        st.markdown("## 📌 Active project tasks")
+        st.dataframe(active_projects, use_container_width=True, hide_index=True)
 
 
 def main():
@@ -300,7 +329,7 @@ def main():
         render_my_tasks(assignments, person)
 
     elif page == "Dashboard":
-        render_dashboard(assignments, availability, week)
+        render_dashboard(assignments, availability, week, projects)
 
     elif page == "Team":
         st.markdown("## Team")
@@ -314,7 +343,7 @@ def main():
 
     elif page == "About":
         st.markdown("## About PE Planner")
-        st.write("Version: Sprint 5.2 - My Tasks")
+        st.write("Version: Sprint 5.3 - Dashboard")
         st.write(f"Employees: {len(team)}")
         st.write(f"Recurring tasks: {len(tasks)}")
         st.write(f"Projects / ad hoc rows: {len(projects)}")
