@@ -224,7 +224,40 @@ def sort_tasks(df):
     return result.sort_values(["__priority_sort", "Frekvens", "Arbejdsopgave"])
 
 
-def task_card(row):
+
+def week_number(week):
+    text = str(week).strip().upper().replace("U", "")
+    try:
+        return int(text)
+    except Exception:
+        return 0
+
+
+def task_key(row, person, week, suffix):
+    task_id = clean(row.get("Task ID")) or clean(row.get("Arbejdsopgave"), "task")
+    return f"{person}_{week}_{task_id}_{suffix}"
+
+
+def completion_controls(row, person, week):
+    frequency = clean(row.get("Frekvens"))
+
+    if frequency == "Daglig":
+        st.caption("Daily completion")
+        cols = st.columns(5)
+        days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+        for col, day in zip(cols, days):
+            with col:
+                st.checkbox(day, key=task_key(row, person, week, day))
+
+    elif frequency == "Ugentlig":
+        st.checkbox("Done this week", key=task_key(row, person, week, "weekly"))
+
+    elif frequency == "Månedlig":
+        cycle = ((week_number(week) - 1) // 4) + 1 if week_number(week) else 0
+        label = f"Done for 4-week cycle {cycle}" if cycle else "Done this cycle"
+        st.checkbox(label, key=task_key(row, person, week, "monthly"))
+
+def task_card(row, person=None, week=None):
     if bool(row.get("Requires Staffing", False)):
         with st.container(border=True):
             st.error("🚨 Requires Staffing")
@@ -273,13 +306,16 @@ def task_card(row):
             button_label = f"Open {system}" if system else "Open Workspace"
             st.link_button(button_label, link)
 
-def render_tasks(title, df):
+        if person and week:
+            completion_controls(row, person, week)
+
+def render_tasks(title, df, person=None, week=None):
     st.markdown(f"## {title}")
     if df is None or df.empty:
         st.info("No tasks found.")
         return
     for _, row in sort_tasks(df).iterrows():
-        task_card(row)
+        task_card(row, person=person, week=week)
 
 
 def render_my_tasks(assignments, person):
@@ -303,14 +339,14 @@ def render_my_tasks(assignments, person):
         & ~person_tasks["Prioritet"].astype(str).str.strip().isin(["Kritisk", "Høj"])
     ]
 
-    render_tasks("🔴 Critical", critical)
-    render_tasks("🟠 High", high)
-    render_tasks("📅 Daily", daily)
-    render_tasks("📆 Weekly", weekly)
-    render_tasks("🗓 Monthly", monthly)
+    render_tasks("🔴 Critical", critical, person=person, week=week)
+    render_tasks("🟠 High", high, person=person, week=week)
+    render_tasks("📅 Daily", daily, person=person, week=week)
+    render_tasks("📆 Weekly", weekly, person=person, week=week)
+    render_tasks("🗓 Monthly", monthly, person=person, week=week)
 
     if not taken_over.empty:
-        render_tasks("🔄 Taken over", taken_over)
+        render_tasks("🔄 Taken over", taken_over, person=person, week=week)
 
     if not staffing.empty:
         render_tasks("🚨 Requires Staffing", staffing)
@@ -411,7 +447,7 @@ def main():
     hero(f"Good morning {person} 👋", f"{week}")
 
     if page == "Start Day":
-        render_tasks("Start Day", start_day_tasks(assignments, person))
+        render_tasks("Start Day", start_day_tasks(assignments, person), person=person, week=week)
 
     elif page == "My Tasks":
         render_my_tasks(assignments, person)
@@ -431,7 +467,7 @@ def main():
 
     elif page == "About":
         st.markdown("## About PE Planner")
-        st.write("Version: Sprint 5.4 - UI polish")
+        st.write("Version: Sprint 6 - Completion checkmarks")
         st.write(f"Employees: {len(team)}")
         st.write(f"Recurring tasks: {len(tasks)}")
         st.write(f"Projects / ad hoc rows: {len(projects)}")
