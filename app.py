@@ -246,6 +246,13 @@ def task_card(row):
     takeover = clean(row.get("Taken Over From"))
     link = clean(row.get("__link"))
 
+    priority_icon = {
+        "Kritisk": "🔴",
+        "Høj": "🟠",
+        "Normal": "🟡",
+        "Lav": "🟢",
+    }.get(priority, "⚪")
+
     meta = " · ".join([x for x in [
         " / ".join([x for x in [system, workspace] if x]),
         banner,
@@ -254,20 +261,24 @@ def task_card(row):
     ] if x])
 
     with st.container(border=True):
-        top_left, top_right = st.columns([4, 1])
+        top_left, top_right = st.columns([5, 1])
         with top_left:
-            st.markdown(f"**{title}**")
-            if meta:
-                st.caption(meta)
+            st.markdown(f"### {title}")
         with top_right:
             if label:
-                st.caption(label)
+                st.markdown(f"**{priority_icon} {label}**")
+
+        if meta:
+            st.caption(f"📍 {meta}")
 
         if takeover:
             st.info(f"Taken over from {takeover}")
 
         if description:
-            st.caption(description)
+            st.markdown(
+                f"<div style='font-size:14px; color:#4B5563; margin-top:8px;'>{description}</div>",
+                unsafe_allow_html=True,
+            )
 
         if link:
             button_label = f"Open {system}" if system else "Open Workspace"
@@ -431,7 +442,7 @@ def main():
 
     elif page == "About":
         st.markdown("## About PE Planner")
-        st.write("Version: Sprint 5.4 - UI polish")
+        st.write("Version: Sprint 5.4.1 - Task card UI polish")
         st.write(f"Employees: {len(team)}")
         st.write(f"Recurring tasks: {len(tasks)}")
         st.write(f"Projects / ad hoc rows: {len(projects)}")
